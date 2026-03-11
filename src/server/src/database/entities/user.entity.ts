@@ -23,7 +23,7 @@ export class User {
   @Column({ name: 'password_hash', length: 255 })
   passwordHash: string
 
-  @Column({ length: 500, nullable: true })
+  @Column({ type: 'text', nullable: true })
   avatar: string
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })

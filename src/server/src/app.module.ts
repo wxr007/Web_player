@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module'
 import { UserModule } from './modules/user/user.module'
 import { VideoModule } from './modules/video/video.module'
 import { HealthModule } from './modules/health/health.module'
+import { AdminModule } from './modules/admin/admin.module'
 
 // 根据环境确定要加载的 env 文件
 const envFilePath = process.env.NODE_ENV === 'production' 
@@ -24,6 +25,7 @@ const envFilePath = process.env.NODE_ENV === 'production'
     UserModule,
     VideoModule,
     HealthModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

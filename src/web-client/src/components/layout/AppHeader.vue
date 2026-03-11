@@ -7,6 +7,9 @@ const router = useRouter()
 const authStore = useAuthStore()
 const showDropdown = ref(false)
 
+// 默认头像 - 使用内联 SVG
+const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiPjxjaXJjbGUgY3g9IjEyIiBjeT0iOCIgcj0iNCIvPjxwYXRoIGQ9Ik0yMCAyMXYtMmE0IDQgMCAwIDAtNC00SDhhNCA0IDAgMCAwLTQgNHYyIi8+PC9zdmc+'
+
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 const userInfo = computed(() => authStore.userInfo)
 
@@ -42,7 +45,7 @@ const closeDropdown = () => {
             VIP
           </router-link>
           <div class="user-menu" @click="toggleDropdown">
-            <img :src="userInfo?.avatar || '/default-avatar.png'" alt="avatar" class="avatar" />
+            <img :src="userInfo?.avatar || defaultAvatar" alt="avatar" class="avatar" @error="$event.target.src = defaultAvatar" />
             <span class="username">{{ userInfo?.username }}</span>
             <div class="dropdown" v-if="showDropdown" @click.stop>
               <div class="dropdown-item" @click="router.push('/user/profile'); closeDropdown()">个人资料</div>

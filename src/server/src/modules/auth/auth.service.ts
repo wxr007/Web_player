@@ -11,8 +11,15 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(username: string, password: string): Promise<any> {
-    const user = await this.userService.findByUsername(username)
+  async validateUser(identifier: string, password: string): Promise<any> {
+    // 先尝试用用户名查找
+    let user = await this.userService.findByUsername(identifier)
+    
+    // 如果没找到，尝试用邮箱查找
+    if (!user) {
+      user = await this.userService.findByEmail(identifier)
+    }
+    
     if (user && await bcrypt.compare(password, user.passwordHash)) {
       const { passwordHash, ...result } = user
       return result
@@ -23,7 +30,7 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.username, loginDto.password)
     if (!user) {
-      throw new UnauthorizedException('用户名或密码错误')
+      throw new UnauthorizedException('用户名/邮箱或密码错误')
     }
     
     const payload = { username: user.username, sub: user.id, role: user.role }

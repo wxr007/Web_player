@@ -40,11 +40,11 @@ const handleSubmit = async () => {
       
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-item">
-          <label>用户名</label>
+          <label>用户名/邮箱</label>
           <input 
             v-model="form.username" 
             type="text" 
-            placeholder="请输入用户名"
+            placeholder="请输入用户名或邮箱"
             autocomplete="username"
           />
         </div>
