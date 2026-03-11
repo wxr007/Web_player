@@ -1,0 +1,29 @@
+import { Module } from '@nestjs/common'
+import { ConfigModule } from '@nestjs/config'
+import configuration from './config/configuration'
+import { DatabaseModule } from './database/database.module'
+import { AuthModule } from './modules/auth/auth.module'
+import { UserModule } from './modules/user/user.module'
+import { VideoModule } from './modules/video/video.module'
+import { HealthModule } from './modules/health/health.module'
+
+// 根据环境确定要加载的 env 文件
+const envFilePath = process.env.NODE_ENV === 'production' 
+  ? '.env.production' 
+  : '.env'
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+      envFilePath: envFilePath,
+    }),
+    DatabaseModule,
+    AuthModule,
+    UserModule,
+    VideoModule,
+    HealthModule,
+  ],
+})
+export class AppModule {}

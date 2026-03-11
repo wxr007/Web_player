@@ -1,0 +1,53 @@
+# 依赖
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# 构建输出
+dist/
+dist-ssr/
+*.local
+build/
+
+# 环境变量（包含敏感信息）
+.env
+.env.local
+.env.*.local
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 编辑器和IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# 临时文件
+*.tmp
+*.temp
+nul/
+
+# 操作系统文件
+Thumbs.db
+.DS_Store
+/nul
