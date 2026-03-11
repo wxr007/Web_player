@@ -13,13 +13,32 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    // 复制主应用的配置
+    app.setGlobalPrefix('api');
+    app.enableCors();
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('/api/health (GET)', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/api/health')
       .expect(200)
-      .expect('Hello World!');
+      .expect(res => {
+        expect(res.body.status).toBe('ok');
+        expect(res.body.database).toHaveProperty('connected');
+      });
+  });
+
+  it('/api/health/db (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/health/db')
+      .expect(200)
+      .expect(res => {
+        expect(res.body).toHaveProperty('status');
+      });
   });
 });
