@@ -9,9 +9,11 @@ import { HealthModule } from './modules/health/health.module'
 import { AdminModule } from './modules/admin/admin.module'
 
 // 根据环境确定要加载的 env 文件
-const envFilePath = process.env.NODE_ENV === 'production' 
-  ? '.env.production' 
-  : '.env'
+const envFilePath = process.env.NODE_ENV === 'production'
+  ? '.env.production'
+  : process.env.NODE_ENV === 'development'
+    ? '.env.development'
+    : '.env'
 
 @Module({
   imports: [
