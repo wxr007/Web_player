@@ -1,7 +1,9 @@
 import { Controller, Get } from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger'
 import { InjectDataSource } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
 
+@ApiTags('健康检查')
 @Controller('health')
 export class HealthController {
   constructor(
@@ -9,6 +11,8 @@ export class HealthController {
     private readonly dataSource: DataSource,
   ) {}
 
+  @ApiOperation({ summary: '检查服务健康状态' })
+  @ApiResponse({ status: 200, description: '服务状态' })
   @Get()
   async check() {
     const dbStatus = this.dataSource.isInitialized
@@ -47,6 +51,8 @@ export class HealthController {
     }
   }
 
+  @ApiOperation({ summary: '检查数据库连接状态' })
+  @ApiResponse({ status: 200, description: '数据库连接状态' })
   @Get('db')
   async checkDatabase() {
     try {

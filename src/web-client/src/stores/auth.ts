@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { User, AuthResponse } from '@/types/user'
+import type { User } from '@/types/user'
 import { getToken, setToken, removeToken } from '@/utils/storage'
 import { login as loginApi, register as registerApi, getUserProfile } from '@/api/auth'
 
@@ -18,7 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username: string, password: string) {
     loading.value = true
     try {
-      const res = await loginApi({ username, password }) as unknown as AuthResponse
+      const res = await loginApi({ username, password }) as unknown as { accessToken: string }
       token.value = res.accessToken
       setToken(res.accessToken)
       await fetchUserInfo()
@@ -31,7 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function register(username: string, email: string, password: string) {
     loading.value = true
     try {
-      const res = await registerApi({ username, email, password }) as unknown as AuthResponse
+      const res = await registerApi({ username, email, password }) as unknown as { accessToken: string }
       token.value = res.accessToken
       setToken(res.accessToken)
       await fetchUserInfo()
@@ -44,7 +44,8 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUserInfo() {
     if (!token.value) return
     try {
-      userInfo.value = await getUserProfile() as unknown as User
+      const response = await getUserProfile() as unknown as User
+      userInfo.value = response
     } catch {
       logout()
     }
@@ -56,9 +57,9 @@ export const useAuthStore = defineStore('auth', () => {
     removeToken()
   }
 
-  function initAuth() {
+  async function initAuth() {
     if (token.value) {
-      fetchUserInfo()
+      await fetchUserInfo()
     }
   }
 

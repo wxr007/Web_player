@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe, Logger } from '@nestjs/common'
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { AppModule } from './app.module'
 
 async function bootstrap() {
@@ -15,8 +16,25 @@ async function bootstrap() {
   }))
   app.enableCors()
 
+  // 配置 Swagger
+  const config = new DocumentBuilder()
+    .setTitle('视频平台 API')
+    .setDescription('视频平台后端 API 文档')
+    .setVersion('1.0')
+    .addTag('认证')
+    .addTag('用户')
+    .addTag('视频')
+    .addTag('健康检查')
+    .addTag('管理员')
+    .addTag('目录管理')
+    .addBearerAuth()
+    .build()
+  const document = SwaggerModule.createDocument(app, config)
+  SwaggerModule.setup('api/docs', app, document)
+
   await app.listen(process.env.PORT || 3001)
   console.log(`Server is running on: http://localhost:${process.env.PORT || 3001}`)
   console.log(`Health check: http://localhost:${process.env.PORT || 3001}/api/health`)
+  console.log(`Swagger docs: http://localhost:${process.env.PORT || 3001}/api/docs`)
 }
 bootstrap()

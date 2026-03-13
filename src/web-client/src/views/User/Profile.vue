@@ -90,7 +90,7 @@ const handleFileChange = (event: Event) => {
         console.log('[Debug] 立即更新头像到后端...')
         const updatedUser = await updateUserProfile({ avatar })
         // 更新 store 中的用户信息
-        authStore.userInfo = updatedUser
+        authStore.userInfo = updatedUser.data
         console.log('[Debug] 头像更新成功:', updatedUser)
         alert('头像更新成功')
       } catch (error: any) {
@@ -119,7 +119,7 @@ const saveProfile = async () => {
 
     // 更新 store 中的用户信息
     console.log('[Debug] 更新 store 中的用户信息...')
-    authStore.userInfo = updatedUser
+    authStore.userInfo = updatedUser.data
     console.log('[Debug] Store 更新完成:', authStore.userInfo)
 
     alert('保存成功')
@@ -148,7 +148,7 @@ const saveProfile = async () => {
         <img :src="form.avatar || defaultAvatar" 
              alt="avatar" 
              class="avatar" 
-             @error="$event.target.src = defaultAvatar" />
+             @error="(e) => { const target = e.target as HTMLImageElement; if (target) target.src = defaultAvatar }" />
         <input 
           ref="fileInput"
           type="file" 

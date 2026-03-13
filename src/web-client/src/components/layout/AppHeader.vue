@@ -45,7 +45,7 @@ const closeDropdown = () => {
             VIP
           </router-link>
           <div class="user-menu" @click="toggleDropdown">
-            <img :src="userInfo?.avatar || defaultAvatar" alt="avatar" class="avatar" @error="$event.target.src = defaultAvatar" />
+            <img :src="userInfo?.avatar || defaultAvatar" alt="avatar" class="avatar" @error="(e) => { const target = e.target as HTMLImageElement; if (target) target.src = defaultAvatar }" />
             <span class="username">{{ userInfo?.username }}</span>
             <div class="dropdown" v-if="showDropdown" @click.stop>
               <div class="dropdown-item" @click="router.push('/user/profile'); closeDropdown()">个人资料</div>

@@ -49,6 +49,9 @@ export class Video {
   @Column({ name: 'is_vip_only', type: 'boolean', default: false })
   isVipOnly: boolean
 
+  @Column({ name: 'local_path', length: 1000, nullable: true })
+  localPath: string
+
   @OneToMany(() => Subtitle, subtitle => subtitle.video)
   subtitles: Subtitle[]
 

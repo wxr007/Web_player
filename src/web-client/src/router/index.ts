@@ -64,11 +64,17 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/admin',
+    component: () => import('@/components/layout/AdminLayout.vue'),
     children: [
       {
         path: '',
         name: 'AdminDashboard',
         component: () => import('@/views/Admin/Dashboard.vue')
+      },
+      {
+        path: 'dashboard',
+        name: 'AdminDashboardRedirect',
+        redirect: '/admin'
       },
       {
         path: 'videos',

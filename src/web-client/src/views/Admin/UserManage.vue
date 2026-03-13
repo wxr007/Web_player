@@ -25,7 +25,6 @@ const editDialogVisible = ref(false)
 const currentUser = ref<User | null>(null)
 
 // 计算属性
-const currentPage = computed(() => page.value)
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
 // 显示消息
@@ -191,9 +190,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="user-manage-page container">
-    <h1>用户管理</h1>
-    
+  <div class="user-manage-page">
     <!-- 消息提示 -->
     <div v-if="message" class="message" :class="messageType">
       {{ message }}
@@ -315,8 +312,6 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .user-manage-page {
-  padding: 20px 0;
-  
   h1 {
     margin-bottom: 24px;
     color: var(--color-text-primary);

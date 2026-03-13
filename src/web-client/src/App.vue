@@ -5,8 +5,8 @@ import AppHeader from '@/components/layout/AppHeader.vue'
 
 const authStore = useAuthStore()
 
-onMounted(() => {
-  authStore.initAuth()
+onMounted(async () => {
+  await authStore.initAuth()
 })
 </script>
 
