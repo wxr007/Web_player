@@ -138,11 +138,7 @@ onMounted(async () => {
             {{ crumb.name }}
           </router-link>
         </div>
-        <div class="header-actions">
-          <span class="user-info">
-            {{ authStore.userInfo?.username }}
-          </span>
-        </div>
+
       </div>
       
       <!-- 页面内容 -->
@@ -182,11 +178,10 @@ onMounted(async () => {
   }
   
   .sidebar-header {
-    padding: 20px;
-    border-bottom: 1px solid var(--color-border-light);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     
     .logo {
       font-size: 18px;
