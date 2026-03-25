@@ -22,6 +22,12 @@ const subtitleContents = ref<{[key: string]: {start: string, end: string, text: 
 const loading = ref(true)
 const error = ref('')
 
+// 字幕联动相关
+const currentTime = ref(0)
+const currentSubtitleIndex = ref(-1)
+const subtitleListRef = ref<HTMLElement>()
+const subtitleItemRefs = ref<{[key: number]: HTMLElement}>({})
+
 console.log('初始化变量完成')
 
 const initPlayer = async () => {
@@ -175,6 +181,12 @@ const initPlayer = async () => {
     
     player.value.on('play', () => {
       console.log('视频开始播放')
+    })
+    
+    // 监听播放时间更新
+    player.value.on('timeupdate', () => {
+      currentTime.value = player.value.currentTime()
+      updateCurrentSubtitleIndex()
     })
     
     player.value.on('waiting', () => {
@@ -402,6 +414,63 @@ const selectSubtitle = async (subtitle: Subtitle) => {
   }
 }
 
+// 将时间字符串转换为秒数
+const timeToSeconds = (timeStr: string): number => {
+  // 支持格式: 00:00:00,000 或 00:00:00.000
+  const match = timeStr.match(/(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/)
+  if (!match) return 0
+  const hours = parseInt(match[1])
+  const minutes = parseInt(match[2])
+  const seconds = parseInt(match[3])
+  const milliseconds = parseInt(match[4])
+  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000
+}
+
+// 跳转到指定字幕时间
+const seekToSubtitle = (sub: {start: string, end: string, text: string}) => {
+  const seconds = timeToSeconds(sub.start)
+  if (player.value) {
+    player.value.currentTime(seconds)
+    player.value.play()
+  }
+}
+
+// 更新当前字幕索引
+const updateCurrentSubtitleIndex = () => {
+  if (!currentSubtitle.value || !subtitleContents.value[currentSubtitle.value.id]) {
+    currentSubtitleIndex.value = -1
+    return
+  }
+  
+  const subtitles = subtitleContents.value[currentSubtitle.value.id]
+  const currentSeconds = currentTime.value
+  
+  // 查找当前时间对应的字幕
+  for (let i = 0; i < subtitles.length; i++) {
+    const startSeconds = timeToSeconds(subtitles[i].start)
+    const endSeconds = timeToSeconds(subtitles[i].end)
+    
+    if (currentSeconds >= startSeconds && currentSeconds <= endSeconds) {
+      if (currentSubtitleIndex.value !== i) {
+        currentSubtitleIndex.value = i
+        // 滚动到当前字幕
+        scrollToCurrentSubtitle()
+      }
+      return
+    }
+  }
+  
+  currentSubtitleIndex.value = -1
+}
+
+// 滚动到当前字幕
+const scrollToCurrentSubtitle = () => {
+  const element = subtitleItemRefs.value[currentSubtitleIndex.value]
+  if (element && subtitleListRef.value) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+}
+
 onMounted(async () => {
   console.log('onMounted被调用')
   // 使用nextTick确保DOM已经更新，videoRef已经引用到video元素
@@ -452,11 +521,14 @@ onUnmounted(() => {
           <div v-else-if="!subtitleContents[currentSubtitle.id]" class="loading-subtitle">
             <p>加载字幕内容中...</p>
           </div>
-          <div v-else class="subtitle-content-list">
+          <div v-else class="subtitle-content-list" ref="subtitleListRef">
             <div 
               v-for="(sub, index) in subtitleContents[currentSubtitle.id]" 
               :key="index"
               class="subtitle-content-item"
+              :class="{ 'active': currentSubtitleIndex === index }"
+              @click="seekToSubtitle(sub)"
+              :ref="el => { if (el) subtitleItemRefs[index] = el }"
             >
               <div class="subtitle-time">{{ sub.start }} --> {{ sub.end }}</div>
               <div class="subtitle-text">{{ sub.text }}</div>
@@ -567,9 +639,22 @@ onUnmounted(() => {
 }
 
 .subtitle-content-item {
-  padding: 10px;
+  padding: 12px;
   border-bottom: 1px solid #f0f0f0;
   font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.subtitle-content-item:hover {
+  background-color: #f5f5f5;
+}
+
+.subtitle-content-item.active {
+  background-color: #e3f2fd;
+  border-left: 3px solid #2196f3;
 }
 
 .subtitle-content-item:last-child {
