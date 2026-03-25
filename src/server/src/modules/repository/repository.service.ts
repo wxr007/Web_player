@@ -3,35 +3,94 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Video, VideoStatus } from '../../database/entities/video.entity'
 import { Subtitle } from '../../database/entities/subtitle.entity'
+import { VideoRepository, RepositoryStatus } from '../../database/entities/video-repository.entity'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { execSync } from 'child_process'
 
 @Injectable()
-export class DirectoryService {
-  private readonly logger = new Logger(DirectoryService.name)
+export class RepositoryService {
+  private readonly logger = new Logger(RepositoryService.name)
   private readonly videoExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm']
   private readonly subtitleExtensions = ['.srt', '.vtt', '.ass', '.ssa', '.sub']
 
   constructor(
+    @InjectRepository(VideoRepository)
+    private repositoryRepository: Repository<VideoRepository>,
     @InjectRepository(Video)
     private videoRepository: Repository<Video>,
     @InjectRepository(Subtitle)
     private subtitleRepository: Repository<Subtitle>,
   ) {}
 
-  async scanDirectory(directoryPath: string): Promise<{ added: number; updated: number; total: number }> {
-    this.logger.log(`开始扫描目录: ${directoryPath}`)
-    
-    try {
-      // 检查目录是否存在
-      const stat = await fs.stat(directoryPath)
-      if (!stat.isDirectory()) {
-        throw new Error('指定的路径不是目录')
-      }
+  async createRepository(name: string, path: string): Promise<VideoRepository> {
+    // 检查路径是否存在
+    const stat = await fs.stat(path)
+    if (!stat.isDirectory()) {
+      throw new Error('指定的路径不是目录')
+    }
 
+    // 检查路径是否已存在
+    const existingRepo = await this.repositoryRepository.findOne({
+      where: { path }
+    })
+
+    if (existingRepo) {
+      throw new Error('该路径已被添加为仓库')
+    }
+
+    // 创建新仓库
+    const repository = this.repositoryRepository.create({
+      name,
+      path,
+      status: RepositoryStatus.IDLE
+    })
+
+    return await this.repositoryRepository.save(repository)
+  }
+
+  async getAllRepositories(): Promise<VideoRepository[]> {
+    return await this.repositoryRepository.find()
+  }
+
+  async getRepositoryById(id: string): Promise<VideoRepository> {
+    const repository = await this.repositoryRepository.findOne({
+      where: { id },
+      relations: ['videos']
+    })
+    
+    if (!repository) {
+      throw new Error('仓库不存在')
+    }
+    
+    return repository
+  }
+
+  async updateRepository(id: string, data: Partial<VideoRepository>): Promise<VideoRepository> {
+    await this.repositoryRepository.update(id, data)
+    return await this.getRepositoryById(id)
+  }
+
+  async deleteRepository(id: string): Promise<void> {
+    // 先删除仓库下的所有视频
+    await this.videoRepository.delete({ repositoryId: id })
+    // 再删除仓库
+    await this.repositoryRepository.delete(id)
+  }
+
+  async scanRepository(id: string): Promise<{ added: number; updated: number; total: number }> {
+    const repository = await this.getRepositoryById(id)
+    
+    // 更新仓库状态为扫描中
+    await this.repositoryRepository.update(id, {
+      status: RepositoryStatus.SCANNING
+    })
+
+    try {
+      this.logger.log(`开始扫描仓库: ${repository.name} (${repository.path})`)
+      
       // 递归扫描目录，获取所有文件
-      const allFiles = await this.findAllFiles(directoryPath)
+      const allFiles = await this.findAllFiles(repository.path)
       this.logger.log(`找到 ${allFiles.length} 个文件`)
 
       // 分离视频文件和字幕文件
@@ -45,15 +104,29 @@ export class DirectoryService {
 
       // 处理每个视频文件
       for (const videoFile of videoFiles) {
-        const result = await this.processVideoFile(videoFile, subtitleFiles)
+        const result = await this.processVideoFile(videoFile, id, subtitleFiles)
         if (result.added) added++
         if (result.updated) updated++
       }
 
+      // 更新仓库状态
+      await this.repositoryRepository.update(id, {
+        status: RepositoryStatus.COMPLETED,
+        lastScanAt: new Date(),
+        videoCount: added + updated
+      })
+
       this.logger.log(`扫描完成: 新增 ${added} 个视频, 更新 ${updated} 个视频, 总计 ${videoFiles.length} 个视频`)
       return { added, updated, total: videoFiles.length }
     } catch (error) {
-      this.logger.error(`扫描目录失败: ${error.message}`)
+      this.logger.error(`扫描仓库失败: ${error.message}`)
+      
+      // 更新仓库状态为错误
+      await this.repositoryRepository.update(id, {
+        status: RepositoryStatus.ERROR,
+        errorMessage: error.message
+      })
+
       throw error
     }
   }
@@ -111,7 +184,7 @@ export class DirectoryService {
     }
   }
 
-  private async processVideoFile(filePath: string, subtitleFiles: string[]): Promise<{ added: boolean; updated: boolean }> {
+  private async processVideoFile(filePath: string, repositoryId: string, subtitleFiles: string[]): Promise<{ added: boolean; updated: boolean }> {
     try {
       const stat = await fs.stat(filePath)
       const fileName = path.basename(filePath)
@@ -134,6 +207,7 @@ export class DirectoryService {
           fileSize: stat.size,
           duration: videoInfo.duration,
           resolution: videoInfo.resolution,
+          repositoryId,
           updatedAt: new Date()
         })
         video = existingVideo
@@ -147,7 +221,8 @@ export class DirectoryService {
           duration: videoInfo.duration,
           resolution: videoInfo.resolution,
           status: VideoStatus.PUBLISHED,
-          isVipOnly: false
+          isVipOnly: false,
+          repositoryId
         })
         video = await this.videoRepository.save(newVideo)
       }
@@ -204,33 +279,5 @@ export class DirectoryService {
     } catch (error) {
       this.logger.error(`处理字幕文件失败: ${error.message}`)
     }
-  }
-
-  async getVideoDirectories(): Promise<string[]> {
-    // 从数据库中获取所有视频的目录
-    const videos = await this.videoRepository.find({
-      select: ['localPath']
-    })
-
-    const directories = new Set<string>()
-    videos.forEach(video => {
-      if (video.localPath) {
-        directories.add(path.dirname(video.localPath))
-      }
-    })
-
-    return Array.from(directories)
-  }
-
-  async removeDirectory(directoryPath: string): Promise<number> {
-    // 移除指定目录下的所有视频
-    const videos = await this.videoRepository
-      .createQueryBuilder('video')
-      .where('video.localPath LIKE :path', { path: `${directoryPath}%` })
-      .getMany()
-
-    const count = videos.length
-    await this.videoRepository.remove(videos)
-    return count
   }
 }

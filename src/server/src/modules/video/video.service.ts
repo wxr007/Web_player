@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Video, VideoStatus } from '../../database/entities/video.entity'
+import { Subtitle } from '../../database/entities/subtitle.entity'
 import { User, UserRole } from '../../database/entities/user.entity'
 
 @Injectable()
@@ -9,6 +10,8 @@ export class VideoService {
   constructor(
     @InjectRepository(Video)
     private videoRepository: Repository<Video>,
+    @InjectRepository(Subtitle)
+    private subtitleRepository: Repository<Subtitle>,
   ) {}
 
   async findAll(params: {
@@ -57,6 +60,30 @@ export class VideoService {
     return video
   }
 
+  async getSubtitleById(id: string): Promise<Subtitle> {
+    console.log(`[VideoService] 开始查询字幕，ID: ${id}`)
+    
+    // 尝试使用不同的查询方式
+    const subtitle = await this.subtitleRepository.findOne({
+      where: { id },
+      relations: ['video']
+    })
+    
+    console.log(`[VideoService] 查询结果: ${subtitle ? '找到字幕' : '未找到字幕'}`)
+    
+    if (!subtitle) {
+      // 尝试查询所有字幕，看看是否能找到
+      const allSubtitles = await this.subtitleRepository.find()
+      console.log(`[VideoService] 所有字幕数量: ${allSubtitles.length}`)
+      console.log(`[VideoService] 所有字幕ID: ${allSubtitles.map(s => s.id).join(', ')}`)
+      
+      throw new NotFoundException('字幕不存在')
+    }
+    
+    console.log(`[VideoService] 找到字幕: ${subtitle.name}`)
+    return subtitle
+  }
+
   async getPlayUrl(id: string, user?: User): Promise<{ url: string }> {
     const video = await this.findById(id)
     
@@ -66,13 +93,16 @@ export class VideoService {
       }
     }
     
-    if (!video.ossUrl) {
+    if (video.ossUrl) {
+      await this.videoRepository.increment({ id }, 'viewCount', 1)
+      return { url: video.ossUrl }
+    } else if (video.localPath) {
+      // 对于本地视频文件，返回一个指向本地视频流的URL
+      await this.videoRepository.increment({ id }, 'viewCount', 1)
+      return { url: `videos/${id}/stream` }
+    } else {
       throw new NotFoundException('视频文件不存在')
     }
-    
-    await this.videoRepository.increment({ id }, 'viewCount', 1)
-    
-    return { url: video.ossUrl }
   }
 
   async create(data: Partial<Video>): Promise<Video> {

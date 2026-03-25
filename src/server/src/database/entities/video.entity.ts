@@ -4,6 +4,7 @@ import { Subtitle } from './subtitle.entity'
 import { WatchHistory } from './watch-history.entity'
 import { Favorite } from './favorite.entity'
 import { VideoTag } from './video-tag.entity'
+import { VideoRepository } from './video-repository.entity'
 
 export enum VideoStatus {
   DRAFT = 'draft',
@@ -51,6 +52,13 @@ export class Video {
 
   @Column({ name: 'local_path', length: 1000, nullable: true })
   localPath: string
+
+  @ManyToOne(() => VideoRepository, repository => repository.videos, { nullable: true })
+  @JoinColumn({ name: 'repository_id' })
+  repository: VideoRepository
+
+  @Column({ name: 'repository_id', nullable: true })
+  repositoryId: string
 
   @OneToMany(() => Subtitle, subtitle => subtitle.video)
   subtitles: Subtitle[]

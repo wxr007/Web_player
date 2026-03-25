@@ -8,6 +8,7 @@ import { VideoModule } from './modules/video/video.module'
 import { HealthModule } from './modules/health/health.module'
 import { AdminModule } from './modules/admin/admin.module'
 import { DirectoryModule } from './modules/directory/directory.module'
+import { RepositoryModule } from './modules/repository/repository.module'
 
 // 根据环境确定要加载的 env 文件
 const envFilePath = process.env.NODE_ENV === 'production'
@@ -30,6 +31,7 @@ const envFilePath = process.env.NODE_ENV === 'production'
     HealthModule,
     AdminModule,
     DirectoryModule,
+    RepositoryModule,
   ],
 })
 export class AppModule {}

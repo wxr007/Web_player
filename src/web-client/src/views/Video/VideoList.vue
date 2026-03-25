@@ -47,7 +47,7 @@ const formatDuration = (seconds: number) => {
       <router-link 
         v-for="video in videos" 
         :key="video.id" 
-        :to="`/video/${video.id}`"
+        :to="`/video/${video.id}/play`"
         class="video-card"
       >
         <div class="video-cover">
