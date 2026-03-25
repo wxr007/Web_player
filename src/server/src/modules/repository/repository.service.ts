@@ -213,20 +213,18 @@ export class RepositoryService {
       let coverUrl: string | null = null
 
       // 生成封面截图（如果是新视频或没有封面）
+      // 注意：这里强制为所有视频生成封面，即使已有封面也要检查封面文件是否存在
       const needCover = !existingVideo || !existingVideo.coverUrl
       this.logger.log(`[封面调试] 是否需要生成封面: ${needCover}`)
       
-      if (needCover) {
-        this.logger.log(`[封面调试] 开始生成封面: ${fileName}`)
-        coverUrl = await this.generateVideoCover(filePath)
-        this.logger.log(`[封面调试] 封面生成结果: ${coverUrl || 'null'}`)
-        if (coverUrl) {
-          this.logger.log(`[封面调试] 封面生成成功: ${fileName}`)
-        } else {
-          this.logger.warn(`[封面调试] 封面生成失败: ${fileName}`)
-        }
+      // 始终尝试生成封面，以确保封面存在
+      this.logger.log(`[封面调试] 开始生成封面: ${fileName}`)
+      coverUrl = await this.generateVideoCover(filePath)
+      this.logger.log(`[封面调试] 封面生成结果: ${coverUrl || 'null'}`)
+      if (coverUrl) {
+        this.logger.log(`[封面调试] 封面生成成功: ${fileName}`)
       } else {
-        this.logger.log(`[封面调试] 跳过封面生成，视频已有封面: ${fileName}`)
+        this.logger.warn(`[封面调试] 封面生成失败: ${fileName}`)
       }
 
       let video: Video
@@ -243,12 +241,19 @@ export class RepositoryService {
         }
         if (coverUrl) {
           updateData.coverUrl = coverUrl
+          this.logger.log(`[封面调试] 更新视频 ${existingVideo.id} 的 coverUrl: ${coverUrl}`)
         }
         await this.videoRepository.update(existingVideo.id, updateData)
-        video = existingVideo
-        await this.videoRepository.save(video)
+        // 重新查询获取更新后的数据
+        const updatedVideo = await this.videoRepository.findOne({ where: { id: existingVideo.id } })
+        if (!updatedVideo) {
+          throw new Error('更新后无法找到视频')
+        }
+        video = updatedVideo
+        this.logger.log(`[封面调试] 更新后视频的 coverUrl: ${video.coverUrl || 'null'}`)
       } else {
         // 创建新视频
+        this.logger.log(`[封面调试] 创建新视频，coverUrl: ${coverUrl || 'null'}`)
         const newVideo = this.videoRepository.create({
           title,
           localPath: filePath,
@@ -261,6 +266,7 @@ export class RepositoryService {
           coverUrl: coverUrl || undefined
         })
         video = await this.videoRepository.save(newVideo)
+        this.logger.log(`[封面调试] 新视频创建成功，ID: ${video.id}, coverUrl: ${video.coverUrl || 'null'}`)
       }
 
       // 为视频匹配字幕文件
