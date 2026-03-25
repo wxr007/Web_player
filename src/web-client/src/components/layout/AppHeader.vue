@@ -79,8 +79,8 @@ const closeDropdown = () => {
 }
 
 .header-container {
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
   height: 100%;
   display: flex;
   align-items: center;

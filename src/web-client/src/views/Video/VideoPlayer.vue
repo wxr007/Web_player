@@ -419,22 +419,24 @@ onUnmounted(() => {
 <template>
   <div class="video-player-page">
     <div class="container">
-      <!-- 视频标题 -->
-      <div class="video-title" v-if="video">
-        <h1>{{ video.title }}</h1>
-        <p class="subtitle-info" v-if="subtitles.length === 0">
-          <small>没有找到字幕</small>
-        </p>
-      </div>
-      
       <div class="player-layout" v-show="!loading">
-        <!-- 左侧播放器 -->
-        <div class="player-container" v-show="!error">
-          <div class="video-wrapper">
-            <video ref="videoRef" class="video-js vjs-fill"></video>
+        <!-- 左侧播放器区域 -->
+        <div class="player-section">
+          <div class="player-container" v-show="!error">
+            <div class="video-wrapper">
+              <video ref="videoRef" class="video-js vjs-fill"></video>
+            </div>
+            <div class="error" v-show="error">
+              <p>{{ error }}</p>
+            </div>
           </div>
-          <div class="error" v-show="error">
-            <p>{{ error }}</p>
+          
+          <!-- 视频标题 - 放在视频下方 -->
+          <div class="video-title" v-if="video">
+            <h1>{{ video.title }}</h1>
+            <p class="subtitle-info" v-if="subtitles.length === 0">
+              <small>没有找到字幕</small>
+            </p>
           </div>
         </div>
         
@@ -477,43 +479,33 @@ onUnmounted(() => {
 }
 
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
   padding: 20px;
   width: 100%;
 }
 
-.video-title {
-  margin-bottom: 20px;
-  
-  h1 {
-    font-size: 24px;
-    margin-bottom: 8px;
-    color: #333;
-  }
-  
-  .subtitle-info {
-    color: #999;
-    margin: 0;
-  }
-}
-
 .player-layout {
   display: flex;
-  gap: 20px;
+  gap: 12px;
   margin-bottom: 20px;
   flex-wrap: nowrap;
   width: 100%;
-  align-items: flex-start;
+  align-items: stretch;
+}
+
+.player-section {
+  flex: 0 0 64%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .player-container {
-  flex: 1;
   background: #000;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  min-width: 0;
-  max-width: calc(100% - 320px);
+  width: 100%;
 }
 
 .video-wrapper {
@@ -521,16 +513,37 @@ onUnmounted(() => {
   background: #000;
 }
 
+.video-title {
+  margin-top: 16px;
+  padding: 0 4px;
+  
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #0f0f0f;
+    line-height: 1.3;
+  }
+  
+  .subtitle-info {
+    color: #606060;
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
 .subtitle-list-container {
-  width: 300px;
+  flex: 0 0 35%;
   background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  max-height: 500px;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   overflow-y: auto;
   flex-shrink: 0;
   flex-grow: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 120px);
 }
 
 .subtitle-list-title {
@@ -548,13 +561,9 @@ onUnmounted(() => {
 }
 
 .subtitle-content-list {
-  max-height: 400px;
+  flex: 1;
   overflow-y: auto;
-}
-
-.subtitle-content-list {
-  max-height: 300px;
-  overflow-y: auto;
+  min-height: 0;
 }
 
 .subtitle-content-item {
