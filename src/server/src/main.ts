@@ -1,12 +1,13 @@
 import { NestFactory } from '@nestjs/core'
-import { ValidationPipe, Logger } from '@nestjs/common'
+import { ValidationPipe } from '@nestjs/common'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { AppModule } from './app.module'
+import { FileLogger } from './common/file-logger'
 
 async function bootstrap() {
-  // 启用详细日志
+  // 启用详细日志，使用自定义日志类
   const app = await NestFactory.create(AppModule, {
-    logger: ['log', 'error', 'warn', 'debug', 'verbose']
+    logger: new FileLogger()
   })
 
   app.setGlobalPrefix('api')

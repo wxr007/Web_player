@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Video, VideoStatus } from '../../database/entities/video.entity'
@@ -6,10 +6,11 @@ import { Subtitle } from '../../database/entities/subtitle.entity'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { execSync } from 'child_process'
+import { FileLogger } from '../../common/file-logger'
 
 @Injectable()
 export class DirectoryService {
-  private readonly logger = new Logger(DirectoryService.name)
+  private readonly logger = new FileLogger(DirectoryService.name)
   private readonly videoExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm']
   private readonly subtitleExtensions = ['.srt', '.vtt', '.ass', '.ssa', '.sub']
 
@@ -45,6 +46,7 @@ export class DirectoryService {
 
       // 处理每个视频文件
       for (const videoFile of videoFiles) {
+        this.logger.debug(`处理视频文件: ${videoFile}`)
         const result = await this.processVideoFile(videoFile, subtitleFiles)
         if (result.added) added++
         if (result.updated) updated++
@@ -117,25 +119,58 @@ export class DirectoryService {
       const fileName = path.basename(filePath)
       const title = path.parse(fileName).name
 
+      this.logger.log(`[封面调试] 开始处理文件: ${fileName}`)
+      this.logger.log(`[封面调试] 文件路径: ${filePath}`)
+
       // 提取视频信息
       const videoInfo = await this.extractVideoInfo(filePath)
+      this.logger.log(`[封面调试] 视频时长: ${videoInfo.duration}秒`)
 
       // 检查视频是否已存在
+      this.logger.log(`[封面调试] 查询数据库检查视频是否存在...`)
       const existingVideo = await this.videoRepository.findOne({
         where: { localPath: filePath }
       })
 
+      this.logger.log(`[封面调试] 视频是否已存在: ${existingVideo ? '是' : '否'}`)
+      if (existingVideo) {
+        this.logger.log(`[封面调试] 现有视频ID: ${existingVideo.id}`)
+        this.logger.log(`[封面调试] 现有视频coverUrl: ${existingVideo.coverUrl || 'null'}`)
+      }
+
       let video: Video
+      let coverUrl: string | null = null
+
+      // 生成封面截图（如果是新视频或没有封面）
+      const needCover = !existingVideo || !existingVideo.coverUrl
+      this.logger.log(`[封面调试] 是否需要生成封面: ${needCover}`)
+      
+      if (needCover) {
+        this.logger.log(`[封面调试] 开始生成封面: ${fileName}`)
+        coverUrl = await this.generateVideoCover(filePath)
+        this.logger.log(`[封面调试] 封面生成结果: ${coverUrl || 'null'}`)
+        if (coverUrl) {
+          this.logger.log(`[封面调试] 封面生成成功: ${fileName}`)
+        } else {
+          this.logger.warn(`[封面调试] 封面生成失败: ${fileName}`)
+        }
+      } else {
+        this.logger.log(`[封面调试] 跳过封面生成，视频已有封面: ${fileName}`)
+      }
 
       if (existingVideo) {
         // 更新现有视频信息
-        await this.videoRepository.update(existingVideo.id, {
+        const updateData: any = {
           title,
           fileSize: stat.size,
           duration: videoInfo.duration,
           resolution: videoInfo.resolution,
           updatedAt: new Date()
-        })
+        }
+        if (coverUrl) {
+          updateData.coverUrl = coverUrl
+        }
+        await this.videoRepository.update(existingVideo.id, updateData)
         video = existingVideo
         await this.videoRepository.save(video)
       } else {
@@ -147,7 +182,8 @@ export class DirectoryService {
           duration: videoInfo.duration,
           resolution: videoInfo.resolution,
           status: VideoStatus.PUBLISHED,
-          isVipOnly: false
+          isVipOnly: false,
+          coverUrl: coverUrl || undefined
         })
         video = await this.videoRepository.save(newVideo)
       }
@@ -159,6 +195,81 @@ export class DirectoryService {
     } catch (error) {
       this.logger.error(`处理视频文件失败 ${filePath}: ${error.message}`)
       return { added: false, updated: false }
+    }
+  }
+
+  /**
+   * 生成视频封面截图
+   * 在视频第10秒处截取一帧作为封面，压缩为480x270分辨率
+   */
+  private async generateVideoCover(filePath: string): Promise<string | null> {
+    try {
+      this.logger.log(`[封面调试] generateVideoCover被调用: ${filePath}`)
+      
+      const videoDir = path.dirname(filePath)
+      const videoName = path.parse(filePath).name
+      const coverFileName = `${videoName}_cover.jpg`
+      const coverPath = path.join(videoDir, coverFileName)
+
+      this.logger.log(`[封面调试] 视频目录: ${videoDir}`)
+      this.logger.log(`[封面调试] 视频名称: ${videoName}`)
+      this.logger.log(`[封面调试] 封面路径: ${coverPath}`)
+
+      // 检查封面是否已存在
+      try {
+        await fs.access(coverPath)
+        this.logger.log(`[封面调试] 封面已存在，跳过生成: ${coverPath}`)
+        // 返回相对路径，前端通过视频ID获取封面
+        return `/api/videos/cover/${videoName}_cover.jpg`
+      } catch {
+        this.logger.log(`[封面调试] 封面不存在，需要生成: ${coverPath}`)
+      }
+
+      // 先获取视频时长，确保视频有足够的长度
+      const videoInfo = await this.extractVideoInfo(filePath)
+      this.logger.log(`[封面调试] 视频时长: ${videoInfo.duration}秒`)
+      
+      if (videoInfo.duration < 1) {
+        this.logger.warn(`[封面调试] 视频时长太短，无法生成封面: ${filePath}`)
+        return null
+      }
+
+      // 确定截图时间点（第10秒，或视频时长的一半，取较小值）
+      const captureTime = Math.min(10, Math.floor(videoInfo.duration / 2))
+      const timeStr = new Date(captureTime * 1000).toISOString().substr(11, 8)
+      this.logger.log(`[封面调试] 将在 ${timeStr} 处截取封面`)
+
+      // 使用ffmpeg生成封面截图
+      // -ss 00:00:10 在指定时间处截取
+      // -vframes 1 只截取一帧
+      // -vf "scale=480:270" 缩放到480x270（16:9比例）
+      // -q:v 2 设置JPEG质量（2-5是较好的质量范围）
+      const command = `ffmpeg -ss ${timeStr} -i "${filePath}" -vframes 1 -vf "scale=480:270" -q:v 2 "${coverPath}"`
+      this.logger.log(`[封面调试] ffmpeg命令: ${command}`)
+      
+      try {
+        this.logger.log(`[封面调试] 开始执行ffmpeg命令`)
+        execSync(command, { encoding: 'utf8' })
+        this.logger.log(`[封面调试] ffmpeg命令执行成功`)
+      } catch (ffmpegError) {
+        this.logger.error(`[封面调试] ffmpeg命令执行失败: ${ffmpegError.message}`)
+        throw ffmpegError
+      }
+      
+      // 检查封面是否成功生成
+      try {
+        await fs.access(coverPath)
+        const stats = await fs.stat(coverPath)
+        this.logger.log(`[封面调试] 封面生成成功: ${coverPath}, 大小: ${stats.size} bytes`)
+        // 返回相对路径，前端通过视频ID获取封面
+        return `/api/videos/cover/${videoName}_cover.jpg`
+      } catch (error) {
+        this.logger.error(`[封面调试] 封面生成后无法访问: ${coverPath}, 错误: ${error.message}`)
+        return null
+      }
+    } catch (error) {
+      this.logger.error(`[封面调试] 生成封面失败 ${filePath}: ${error.message}`)
+      return null
     }
   }
 

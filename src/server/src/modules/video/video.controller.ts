@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, Response, NotFoundException } from '@nestjs/common'
 import { createReadStream } from 'fs'
+import * as path from 'path'
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger'
 import { AuthGuard } from '@nestjs/passport'
 import { VideoService } from './video.service'
@@ -258,6 +259,62 @@ export class VideoController {
   @UseGuards(AuthGuard('jwt'))
   async delete(@Param('id') id: string) {
     return this.videoService.delete(id)
+  }
+
+  @ApiOperation({ summary: '获取视频封面' })
+  @ApiParam({ name: 'id', description: '视频ID' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  @ApiResponse({ status: 404, description: '封面不存在' })
+  @Get(':id/cover')
+  async getVideoCover(@Param('id') id: string, @Response() res) {
+    console.log(`[Get Cover] 开始处理封面请求，视频ID: ${id}`)
+    
+    try {
+      // 从数据库中获取视频信息
+      const video = await this.videoService.findById(id)
+      
+      if (!video.coverUrl) {
+        console.log(`[Get Cover] 视频没有封面: ${id}`)
+        throw new NotFoundException('封面不存在')
+      }
+      
+      // 根据coverUrl获取封面文件路径
+      // coverUrl格式: /api/videos/cover/{filename}_cover.jpg
+      const coverFileName = video.coverUrl.replace('/api/videos/cover/', '')
+      const videoDir = path.dirname(video.localPath)
+      const fullCoverPath = path.join(videoDir, coverFileName)
+      
+      console.log(`[Get Cover] 封面路径: ${fullCoverPath}`)
+      
+      // 检查封面文件是否存在
+      const fs = require('fs')
+      if (!fs.existsSync(fullCoverPath)) {
+        console.log(`[Get Cover] 封面文件不存在: ${fullCoverPath}`)
+        throw new NotFoundException('封面文件不存在')
+      }
+      
+      // 获取文件信息
+      const stat = fs.statSync(fullCoverPath)
+      
+      // 设置响应头
+      res.set('Content-Length', stat.size.toString())
+      res.set('Content-Type', 'image/jpeg')
+      res.set('Cache-Control', 'public, max-age=86400') // 缓存1天
+      
+      // 创建文件流并发送
+      const fileStream = fs.createReadStream(fullCoverPath)
+      fileStream.on('error', (error) => {
+        console.error(`[Get Cover] 文件流错误: ${error.message}`)
+        if (!res.headersSent) {
+          res.status(500).send('读取封面失败')
+        }
+      })
+      
+      fileStream.pipe(res)
+    } catch (error) {
+      console.error(`[Get Cover] 错误: ${error.message}`)
+      throw error
+    }
   }
 
   /**
