@@ -279,7 +279,7 @@ export class VideoController {
       }
       
       // 根据coverUrl获取封面文件路径
-      // coverUrl格式: /api/videos/cover/{filename}_cover.jpg
+      // coverUrl格式: /api/videos/cover/{filename}.jpg
       const coverFileName = video.coverUrl.replace('/api/videos/cover/', '')
       const videoDir = path.dirname(video.localPath)
       const fullCoverPath = path.join(videoDir, coverFileName)

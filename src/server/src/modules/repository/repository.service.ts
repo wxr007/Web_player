@@ -333,7 +333,7 @@ export class RepositoryService {
 
       const videoDir = path.dirname(filePath)
       const videoName = path.parse(filePath).name
-      const coverFileName = `${videoName}_cover.jpg`
+      const coverFileName = `${videoName}.jpg`
       const coverPath = path.join(videoDir, coverFileName)
 
       this.logger.log(`[封面调试] 视频目录: ${videoDir}`)
@@ -345,7 +345,7 @@ export class RepositoryService {
         await fs.access(coverPath)
         this.logger.log(`[封面调试] 封面已存在，跳过生成: ${coverPath}`)
         // 返回相对路径，前端通过视频ID获取封面
-        return `/api/videos/cover/${videoName}_cover.jpg`
+        return `/api/videos/cover/${videoName}.jpg`
       } catch {
         this.logger.log(`[封面调试] 封面不存在，需要生成: ${coverPath}`)
       }
@@ -387,7 +387,7 @@ export class RepositoryService {
         const stats = await fs.stat(coverPath)
         this.logger.log(`[封面调试] 封面生成成功: ${coverPath}, 大小: ${stats.size} bytes`)
         // 返回相对路径，前端通过视频ID获取封面
-        return `/api/videos/cover/${videoName}_cover.jpg`
+        return `/api/videos/cover/${videoName}.jpg`
       } catch (error) {
         this.logger.error(`[封面调试] 封面生成后无法访问: ${coverPath}, 错误: ${error.message}`)
         return null

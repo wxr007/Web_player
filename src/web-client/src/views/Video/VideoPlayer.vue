@@ -460,7 +460,7 @@ const updateCurrentSubtitleIndex = () => {
     }
   }
   
-  currentSubtitleIndex.value = -1
+  // 不取消高亮状态，保留最后一个播放的字幕高亮
 }
 
 // 滚动到当前字幕
@@ -657,19 +657,27 @@ onUnmounted(() => {
   border-left: 3px solid #2196f3;
 }
 
+.subtitle-content-item.active .subtitle-time {
+  color: #2196f3;
+}
+
 .subtitle-content-item:last-child {
   border-bottom: none;
 }
 
 .subtitle-time {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 5px;
+  font-size: 13px;
+  color: #999;
+  margin-bottom: 8px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  letter-spacing: 0.5px;
 }
 
 .subtitle-text {
-  color: #333;
-  line-height: 1.4;
+  color: #1a1a1a;
+  line-height: 1.6;
+  font-size: 16px;
+  font-weight: 400;
 }
 
 .loading-subtitle {

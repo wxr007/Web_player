@@ -39,9 +39,6 @@ const formatDuration = (seconds: number) => {
 
 <template>
   <div class="video-list-page container">
-    <div class="page-header">
-      <h1>视频列表</h1>
-    </div>
     
     <div class="video-grid" v-if="!loading && videos.length">
       <router-link 
@@ -51,7 +48,7 @@ const formatDuration = (seconds: number) => {
         class="video-card"
       >
         <div class="video-cover">
-          <img :src="video.coverUrl || '/placeholder.png'" :alt="video.title" />
+          <img :src="video.coverUrl ? `/api/videos/${video.id}/cover` : '/placeholder.png'" :alt="video.title" />
           <span class="duration">{{ formatDuration(video.duration) }}</span>
           <span class="vip-tag" v-if="video.isVipOnly">VIP</span>
         </div>
@@ -77,6 +74,9 @@ const formatDuration = (seconds: number) => {
 <style scoped lang="scss">
 .video-list-page {
   padding: var(--spacing-lg);
+  max-width: 100%;
+  margin: 0;
+  width: 100%;
 }
 
 .page-header {
