@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { getVideoList } from '@/api/video'
 import type { Video } from '@/types/video'
 
@@ -25,6 +25,57 @@ const fetchVideos = async () => {
 onMounted(() => {
   fetchVideos()
 })
+
+const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
+
+// 计算要显示的页码数组
+const visiblePages = computed(() => {
+  const pages: (number | string)[] = []
+  const total = totalPages.value
+  const current = page.value
+  
+  if (total <= 10) {
+    // 总页数少于10，显示所有页码
+    for (let i = 1; i <= total; i++) {
+      pages.push(i)
+    }
+  } else {
+    // 总页数大于10，显示部分页码
+    if (current <= 5) {
+      // 当前页在前5页，显示1-10
+      for (let i = 1; i <= 10; i++) {
+        pages.push(i)
+      }
+    } else if (current >= total - 4) {
+      // 当前页在后5页，显示最后10页
+      for (let i = total - 9; i <= total; i++) {
+        pages.push(i)
+      }
+    } else {
+      // 当前页在中间，显示当前页前后5页
+      for (let i = current - 4; i <= current + 5; i++) {
+        pages.push(i)
+      }
+    }
+  }
+  
+  return pages
+})
+
+const handlePageChange = (newPage: number) => {
+  if (newPage < 1 || newPage > totalPages.value) return
+  page.value = newPage
+  fetchVideos()
+  // 滚动到页面顶部
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const handlePageSizeChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  pageSize.value = parseInt(target.value)
+  page.value = 1
+  fetchVideos()
+}
 
 const formatDuration = (seconds: number) => {
   const h = Math.floor(seconds / 3600)
@@ -67,6 +118,49 @@ const formatDuration = (seconds: number) => {
     
     <div class="loading" v-if="loading">
       <p>加载中...</p>
+    </div>
+    
+    <!-- 分页组件 -->
+    <div class="pagination" v-if="total > 0">
+      <div class="pagination-info">
+        共 {{ total }} 条记录，每页 
+        <select :value="pageSize" @change="handlePageSizeChange">
+          <option :value="12">12</option>
+          <option :value="24">24</option>
+          <option :value="36">36</option>
+          <option :value="48">48</option>
+        </select>
+        条
+      </div>
+      <div class="pagination-controls">
+        <button 
+          class="btn-page btn-prev" 
+          :disabled="page === 1"
+          @click="handlePageChange(page - 1)"
+        >
+          上一页
+        </button>
+        
+        <div class="page-numbers">
+          <button
+            v-for="pageNum in visiblePages"
+            :key="pageNum"
+            class="page-number"
+            :class="{ active: pageNum === page }"
+            @click="handlePageChange(pageNum as number)"
+          >
+            {{ pageNum }}
+          </button>
+        </div>
+        
+        <button 
+          class="btn-page btn-next" 
+          :disabled="page >= totalPages"
+          @click="handlePageChange(page + 1)"
+        >
+          下一页
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -174,5 +268,95 @@ const formatDuration = (seconds: number) => {
   text-align: center;
   padding: 60px 20px;
   color: var(--color-text-secondary);
+}
+
+.pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 40px;
+  padding: 20px 0;
+  border-top: 1px solid #ebeef5;
+  
+  .pagination-info {
+    color: #606266;
+    font-size: 14px;
+    
+    select {
+      padding: 6px 10px;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      margin: 0 6px;
+      font-size: 14px;
+      cursor: pointer;
+      
+      &:focus {
+        outline: none;
+        border-color: var(--color-primary);
+      }
+    }
+  }
+  
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .btn-page {
+      padding: 8px 16px;
+      background-color: transparent;
+      color: #4285f4;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      
+      &:hover:not(:disabled) {
+        text-decoration: underline;
+      }
+      
+      &:disabled {
+        color: #ccc;
+        cursor: not-allowed;
+        text-decoration: none;
+      }
+    }
+    
+    .page-numbers {
+      display: flex;
+      gap: 4px;
+      
+      .page-number {
+        min-width: 32px;
+        height: 32px;
+        padding: 0 8px;
+        background-color: transparent;
+        color: #4285f4;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        &:hover {
+          text-decoration: underline;
+        }
+        
+        &.active {
+          background-color: #4285f4;
+          color: white;
+          text-decoration: none;
+          
+          &:hover {
+            background-color: #3367d6;
+          }
+        }
+      }
+    }
+  }
 }
 </style>
