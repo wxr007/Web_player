@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Video, VideoStatus } from '../../database/entities/video.entity'
@@ -7,6 +7,8 @@ import { User, UserRole } from '../../database/entities/user.entity'
 
 @Injectable()
 export class VideoService {
+  private readonly logger = new Logger(VideoService.name)
+
   constructor(
     @InjectRepository(Video)
     private videoRepository: Repository<Video>,
@@ -82,26 +84,26 @@ export class VideoService {
   }
 
   async getSubtitleById(id: string): Promise<Subtitle> {
-    console.log(`[VideoService] 开始查询字幕，ID: ${id}`)
-    
+    this.logger.log(`[VideoService] 开始查询字幕，ID: ${id}`)
+
     // 尝试使用不同的查询方式
     const subtitle = await this.subtitleRepository.findOne({
       where: { id },
       relations: ['video']
     })
-    
-    console.log(`[VideoService] 查询结果: ${subtitle ? '找到字幕' : '未找到字幕'}`)
-    
+
+    this.logger.log(`[VideoService] 查询结果: ${subtitle ? '找到字幕' : '未找到字幕'}`)
+
     if (!subtitle) {
       // 尝试查询所有字幕，看看是否能找到
       const allSubtitles = await this.subtitleRepository.find()
-      console.log(`[VideoService] 所有字幕数量: ${allSubtitles.length}`)
-      console.log(`[VideoService] 所有字幕ID: ${allSubtitles.map(s => s.id).join(', ')}`)
-      
+      this.logger.log(`[VideoService] 所有字幕数量: ${allSubtitles.length}`)
+      this.logger.log(`[VideoService] 所有字幕ID: ${allSubtitles.map(s => s.id).join(', ')}`)
+
       throw new NotFoundException('字幕不存在')
     }
-    
-    console.log(`[VideoService] 找到字幕: ${subtitle.name}`)
+
+    this.logger.log(`[VideoService] 找到字幕: ${subtitle.name}`)
     return subtitle
   }
 

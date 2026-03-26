@@ -4,25 +4,72 @@ import { getVideoList, getRepositories } from '@/api/video'
 import type { Video } from '@/types/video'
 import type { Repository } from '@/api/video'
 
+// 用户设置存储键
+const USER_SETTINGS_KEY = 'videoListSettings'
+
+// 默认设置
+const defaultSettings = {
+  gridSize: 6 as 4 | 5 | 6,
+  sortField: 'createdAt' as 'createdAt' | 'viewCount' | 'title',
+  sortOrder: 'asc' as 'asc' | 'desc',
+  pageSize: 12,
+  selectedRepository: ''
+}
+
+// 加载用户设置
+const loadUserSettings = () => {
+  try {
+    const saved = localStorage.getItem(USER_SETTINGS_KEY)
+    if (saved) {
+      return { ...defaultSettings, ...JSON.parse(saved) }
+    }
+  } catch (e) {
+    console.error('加载用户设置失败:', e)
+  }
+  return defaultSettings
+}
+
+// 保存用户设置
+const saveUserSettings = () => {
+  try {
+    const settings = {
+      gridSize: gridSize.value,
+      sortField: sortField.value,
+      sortOrder: sortOrder.value,
+      pageSize: pageSize.value,
+      selectedRepository: selectedRepository.value
+    }
+    localStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(settings))
+  } catch (e) {
+    console.error('保存用户设置失败:', e)
+  }
+}
+
 const videos = ref<Video[]>([])
 const loading = ref(false)
 const page = ref(1)
-const pageSize = ref(12)
 const total = ref(0)
 
+// 从本地存储加载设置
+const userSettings = loadUserSettings()
+
 // 排序相关
-const sortField = ref<'createdAt' | 'viewCount' | 'title'>('createdAt')
-const sortOrder = ref<'asc' | 'desc'>('asc')
+const sortField = ref<'createdAt' | 'viewCount' | 'title'>(userSettings.sortField)
+const sortOrder = ref<'asc' | 'desc'>(userSettings.sortOrder)
+
+// 分页相关
+const pageSize = ref(userSettings.pageSize)
 
 // 仓库筛选相关
 const repositories = ref<Repository[]>([])
-const selectedRepository = ref<string>('')
+const selectedRepository = ref<string>(userSettings.selectedRepository)
 
 // 缩略图大小
-const gridSize = ref<4 | 5 | 6>(4)
+const gridSize = ref<4 | 5 | 6>(userSettings.gridSize)
 
 const handleGridSizeChange = (size: 4 | 5 | 6) => {
   gridSize.value = size
+  saveUserSettings()
 }
 
 const fetchVideos = async () => {
@@ -57,6 +104,7 @@ const handleRepositoryChange = (event: Event) => {
   const target = event.target as HTMLSelectElement
   selectedRepository.value = target.value
   page.value = 1
+  saveUserSettings()
   fetchVideos()
 }
 
@@ -64,12 +112,14 @@ const handleSortFieldChange = (event: Event) => {
   const target = event.target as HTMLSelectElement
   sortField.value = target.value as 'createdAt' | 'viewCount' | 'title'
   page.value = 1
+  saveUserSettings()
   fetchVideos()
 }
 
 const handleSortOrderChange = () => {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
   page.value = 1
+  saveUserSettings()
   fetchVideos()
 }
 
@@ -126,6 +176,7 @@ const handlePageSizeChange = (event: Event) => {
   const target = event.target as HTMLSelectElement
   pageSize.value = parseInt(target.value)
   page.value = 1
+  saveUserSettings()
   fetchVideos()
 }
 

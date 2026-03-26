@@ -49,3 +49,15 @@ export const removeFavorite = (videoId: string) => {
 export const updateWatchProgress = (videoId: string, progress: number) => {
   return instance.post('/user/history', { videoId, progress })
 }
+
+export const getVideoProgress = (videoId: string) => {
+  return instance.get<{ progress: number }>(`/user/history/progress/${videoId}`)
+}
+
+export const clearWatchHistory = () => {
+  return instance.delete('/user/history/clear')
+}
+
+export const deleteWatchHistoryItem = (videoId: string) => {
+  return instance.delete(`/user/history/${videoId}`)
+}

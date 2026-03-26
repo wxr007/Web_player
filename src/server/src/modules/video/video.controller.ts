@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, Response, NotFoundException } from '@nestjs/common'
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request, Response, NotFoundException, Logger } from '@nestjs/common'
 import { createReadStream } from 'fs'
 import * as path from 'path'
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger'
@@ -8,6 +8,8 @@ import { VideoService } from './video.service'
 @ApiTags('视频')
 @Controller('videos')
 export class VideoController {
+  private readonly logger = new Logger(VideoController.name)
+
   constructor(private videoService: VideoService) {}
 
   @ApiOperation({ summary: '获取视频列表' })
@@ -70,32 +72,32 @@ export class VideoController {
   @ApiResponse({ status: 404, description: '视频不存在' })
   @Get(':id/stream')
   async streamVideo(@Param('id') id: string, @Request() req, @Response() res) {
-    console.log(`[Stream Video] 开始处理视频流请求，视频ID: ${id}`)
+    this.logger.log(`[Stream Video] 开始处理视频流请求，视频ID: ${id}`)
     
     try {
       const video = await this.videoService.findById(id)
-      console.log(`[Stream Video] 找到视频: ${video.title}`)
-      console.log(`[Stream Video] 本地路径: ${video.localPath}`)
+      this.logger.log(`[Stream Video] 找到视频: ${video.title}`)
+      this.logger.log(`[Stream Video] 本地路径: ${video.localPath}`)
       
       if (!video.localPath) {
-        console.log(`[Stream Video] 视频文件不存在，视频ID: ${id}`)
+        this.logger.log(`[Stream Video] 视频文件不存在，视频ID: ${id}`)
         throw new NotFoundException('视频文件不存在')
       }
-      
+
       // 检查文件是否存在
       const fs = require('fs')
       if (!fs.existsSync(video.localPath)) {
-        console.log(`[Stream Video] 本地文件不存在: ${video.localPath}`)
+        this.logger.log(`[Stream Video] 本地文件不存在: ${video.localPath}`)
         throw new NotFoundException('视频文件不存在')
       }
-      
+
       // 获取文件信息
       const stat = fs.statSync(video.localPath)
       const fileSize = stat.size
       const range = req.headers.range
-      
-      console.log(`[Stream Video] 文件大小: ${fileSize}`)
-      console.log(`[Stream Video] Range请求: ${range}`)
+
+      this.logger.log(`[Stream Video] 文件大小: ${fileSize}`)
+      this.logger.log(`[Stream Video] Range请求: ${range}`)
       
       if (range) {
         // 处理Range请求
@@ -104,7 +106,7 @@ export class VideoController {
         const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
         const chunkSize = (end - start) + 1
         
-        console.log(`[Stream Video] 开始: ${start}, 结束: ${end}, 块大小: ${chunkSize}`)
+        this.logger.log(`[Stream Video] 开始: ${start}, 结束: ${end}, 块大小: ${chunkSize}`)
         
         // 设置响应头
         res.set('Content-Range', `bytes ${start}-${end}/${fileSize}`)
@@ -123,19 +125,19 @@ export class VideoController {
         
         // 处理流错误
         fileStream.on('error', (err: any) => {
-          console.error(`[Stream Video] 文件流错误: ${err.message}`)
+          this.logger.error(`[Stream Video] 文件流错误: ${err.message}`)
           res.status(500).send('视频文件读取失败')
         })
-        
+
         // 处理流结束
         fileStream.on('end', () => {
-          console.log(`[Stream Video] 视频流传输完成`)
+          this.logger.log(`[Stream Video] 视频流传输完成`)
         })
         
         fileStream.pipe(res)
       } else {
         // 处理完整请求
-        console.log(`[Stream Video] 开始流式传输视频: ${video.localPath}`)
+        this.logger.log(`[Stream Video] 开始流式传输视频: ${video.localPath}`)
         
         // 设置响应头
         res.set('Content-Length', fileSize.toString())
@@ -147,19 +149,19 @@ export class VideoController {
         
         // 处理流错误
         fileStream.on('error', (err: any) => {
-          console.error(`[Stream Video] 文件流错误: ${err.message}`)
+          this.logger.error(`[Stream Video] 文件流错误: ${err.message}`)
           res.status(500).send('视频文件读取失败')
         })
-        
+
         // 处理流结束
         fileStream.on('end', () => {
-          console.log(`[Stream Video] 视频流传输完成`)
+          this.logger.log(`[Stream Video] 视频流传输完成`)
         })
         
         fileStream.pipe(res)
       }
     } catch (error) {
-      console.error(`[Stream Video] 错误: ${error.message}`)
+      this.logger.error(`[Stream Video] 错误: ${error.message}`)
       throw error
     }
   }
@@ -170,12 +172,12 @@ export class VideoController {
   @ApiResponse({ status: 404, description: '字幕不存在' })
   @Get('subtitles/:id')
   async getSubtitleFile(@Param('id') id: string, @Response() res) {
-    console.log(`[Get Subtitle] 开始处理字幕文件请求，字幕ID: ${id}`)
-    
+    this.logger.log(`[Get Subtitle] 开始处理字幕文件请求，字幕ID: ${id}`)
+
     try {
       // 测试字幕端点
       if (id === 'test') {
-        console.log(`[Get Subtitle] 测试字幕请求`)
+        this.logger.log(`[Get Subtitle] 测试字幕请求`)
         // 返回测试字幕内容
         const testSubtitle = `WEBVTT
 
@@ -197,13 +199,13 @@ export class VideoController {
       
       // 从数据库中获取字幕信息
       const subtitle = await this.videoService.getSubtitleById(id)
-      console.log(`[Get Subtitle] 找到字幕: ${subtitle.name}`)
-      console.log(`[Get Subtitle] 字幕路径: ${subtitle.ossKey}`)
-      
+      this.logger.log(`[Get Subtitle] 找到字幕: ${subtitle.name}`)
+      this.logger.log(`[Get Subtitle] 字幕路径: ${subtitle.ossKey}`)
+
       // 检查字幕文件是否存在
       const fs = require('fs')
       if (!fs.existsSync(subtitle.ossKey)) {
-        console.log(`[Get Subtitle] 字幕文件不存在: ${subtitle.ossKey}`)
+        this.logger.log(`[Get Subtitle] 字幕文件不存在: ${subtitle.ossKey}`)
         throw new NotFoundException('字幕文件不存在')
       }
       
@@ -218,7 +220,7 @@ export class VideoController {
       if (subtitle.fileType === 'srt') {
         // 将SRT转换为VTT格式
         convertedContent = this.convertSrtToVtt(fileContent)
-        console.log(`[Get Subtitle] 已将SRT转换为VTT格式`)
+        this.logger.log(`[Get Subtitle] 已将SRT转换为VTT格式`)
       }
       
       // 设置响应头
@@ -229,7 +231,7 @@ export class VideoController {
       // 发送转换后的内容
       res.status(200).send(convertedContent)
     } catch (error) {
-      console.error(`[Get Subtitle] 错误: ${error.message}`)
+      this.logger.error(`[Get Subtitle] 错误: ${error.message}`)
       throw error
     }
   }
@@ -273,29 +275,29 @@ export class VideoController {
   @ApiResponse({ status: 404, description: '封面不存在' })
   @Get(':id/cover')
   async getVideoCover(@Param('id') id: string, @Response() res) {
-    console.log(`[Get Cover] 开始处理封面请求，视频ID: ${id}`)
-    
+    this.logger.log(`[Get Cover] 开始处理封面请求，视频ID: ${id}`)
+
     try {
       // 从数据库中获取视频信息
       const video = await this.videoService.findById(id)
-      
+
       if (!video.coverUrl) {
-        console.log(`[Get Cover] 视频没有封面: ${id}`)
+        this.logger.log(`[Get Cover] 视频没有封面: ${id}`)
         throw new NotFoundException('封面不存在')
       }
-      
+
       // 根据coverUrl获取封面文件路径
       // coverUrl格式: /api/videos/cover/{filename}.jpg
       const coverFileName = video.coverUrl.replace('/api/videos/cover/', '')
       const videoDir = path.dirname(video.localPath)
       const fullCoverPath = path.join(videoDir, coverFileName)
-      
-      console.log(`[Get Cover] 封面路径: ${fullCoverPath}`)
-      
+
+      this.logger.log(`[Get Cover] 封面路径: ${fullCoverPath}`)
+
       // 检查封面文件是否存在
       const fs = require('fs')
       if (!fs.existsSync(fullCoverPath)) {
-        console.log(`[Get Cover] 封面文件不存在: ${fullCoverPath}`)
+        this.logger.log(`[Get Cover] 封面文件不存在: ${fullCoverPath}`)
         throw new NotFoundException('封面文件不存在')
       }
       
@@ -310,7 +312,7 @@ export class VideoController {
       // 创建文件流并发送
       const fileStream = fs.createReadStream(fullCoverPath)
       fileStream.on('error', (error) => {
-        console.error(`[Get Cover] 文件流错误: ${error.message}`)
+        this.logger.error(`[Get Cover] 文件流错误: ${error.message}`)
         if (!res.headersSent) {
           res.status(500).send('读取封面失败')
         }
@@ -318,7 +320,7 @@ export class VideoController {
       
       fileStream.pipe(res)
     } catch (error) {
-      console.error(`[Get Cover] 错误: ${error.message}`)
+      this.logger.error(`[Get Cover] 错误: ${error.message}`)
       throw error
     }
   }

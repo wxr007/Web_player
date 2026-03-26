@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core'
-import { ValidationPipe } from '@nestjs/common'
+import { ValidationPipe, Logger } from '@nestjs/common'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { AppModule } from './app.module'
 import { FileLogger } from './common/file-logger'
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap')
+
   // 启用详细日志，使用自定义日志类
   const app = await NestFactory.create(AppModule, {
     logger: new FileLogger()
@@ -34,8 +36,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document)
 
   await app.listen(process.env.PORT || 3001)
-  console.log(`Server is running on: http://localhost:${process.env.PORT || 3001}`)
-  console.log(`Health check: http://localhost:${process.env.PORT || 3001}/api/health`)
-  console.log(`Swagger docs: http://localhost:${process.env.PORT || 3001}/api/docs`)
+  logger.log(`Server is running on: http://localhost:${process.env.PORT || 3001}`)
+  logger.log(`Health check: http://localhost:${process.env.PORT || 3001}/api/health`)
+  logger.log(`Swagger docs: http://localhost:${process.env.PORT || 3001}/api/docs`)
 }
 bootstrap()

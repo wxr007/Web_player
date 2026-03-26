@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { getVideoDetail, getVideoSubtitles, getVideoPlayUrl } from '@/api/video'
+import { getVideoDetail, getVideoSubtitles, getVideoPlayUrl, updateWatchProgress, getVideoProgress } from '@/api/video'
 import type { Video, Subtitle } from '@/types/video'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
@@ -21,6 +21,11 @@ const currentSubtitle = ref<Subtitle | null>(null)
 const subtitleContents = ref<{[key: string]: {start: string, end: string, text: string}[]}>({})
 const loading = ref(true)
 const error = ref('')
+const savedProgress = ref(0)
+const lastReportedProgress = ref(0)
+
+// 进度报告节流（每5秒报告一次）
+const PROGRESS_REPORT_INTERVAL = 5000
 
 // 字幕联动相关
 const currentTime = ref(0)
@@ -56,7 +61,18 @@ const initPlayer = async () => {
     
     video.value = videoRes
     subtitles.value = subtitleRes || []
-    
+
+    // 获取保存的观看进度
+    try {
+      const progressRes = await getVideoProgress(videoId) as unknown as { progress: number }
+      if (progressRes && progressRes.progress > 0) {
+        savedProgress.value = progressRes.progress
+        console.log('获取到保存的进度:', savedProgress.value)
+      }
+    } catch (err) {
+      console.log('获取观看进度失败:', err)
+    }
+
     console.log('获取视频播放地址...')
     const playRes = await getVideoPlayUrl(videoId) as unknown as { url: string }
     console.log('播放地址获取成功:', playRes)
@@ -173,11 +189,26 @@ const initPlayer = async () => {
       console.error('播放器错误:', e.target.error)
       error.value = '播放器初始化失败'
     })
-    
+
+    // 如果有保存的进度，设置跳转
+    const seekToSavedProgress = () => {
+      if (savedProgress.value > 0 && savedProgress.value < (player.value.duration() || 0)) {
+        player.value.currentTime(savedProgress.value)
+        console.log('跳转到保存的进度:', savedProgress.value)
+      }
+    }
+
     player.value.on('loadedmetadata', () => {
       console.log('视频元数据加载完成')
       console.log('加载后字幕轨道:', player.value.textTracks())
+      seekToSavedProgress()
     })
+
+    // 如果视频已经加载了元数据，直接跳转
+    if (player.value.readyState() >= 1) {
+      console.log('视频元数据已加载，直接跳转')
+      seekToSavedProgress()
+    }
     
     player.value.on('play', () => {
       console.log('视频开始播放')
@@ -185,8 +216,27 @@ const initPlayer = async () => {
     
     // 监听播放时间更新
     player.value.on('timeupdate', () => {
-      currentTime.value = player.value.currentTime()
+      const time = player.value.currentTime()
+      currentTime.value = time
       updateCurrentSubtitleIndex()
+      
+      // 记录观看进度（每10秒报告一次）
+      const now = Date.now()
+      if (now - lastReportedProgress.value >= PROGRESS_REPORT_INTERVAL) {
+        const progress = Math.floor(time)
+        if (progress > 0) {
+          updateWatchProgress(videoId, progress)
+          lastReportedProgress.value = now
+          console.log('报告观看进度:', progress)
+        }
+      }
+    })
+    
+    // 监听播放结束
+    player.value.on('ended', () => {
+      // 视频播放完成，记录完整进度
+      updateWatchProgress(videoId, Math.floor(player.value.duration() || 0))
+      console.log('视频播放完成')
     })
     
     player.value.on('waiting', () => {
@@ -471,16 +521,57 @@ const scrollToCurrentSubtitle = () => {
   }
 }
 
+// 保存当前进度到后端
+const saveCurrentProgress = async () => {
+  if (player.value && videoId) {
+    const currentTime = player.value.currentTime()
+    const duration = player.value.duration() || 0
+    // 只有当进度大于0且小于总时长（未看完）时才保存
+    if (currentTime > 0 && currentTime < duration) {
+      try {
+        await updateWatchProgress(videoId, Math.floor(currentTime))
+        console.log('页面关闭前保存进度:', currentTime)
+      } catch (err) {
+        console.error('保存进度失败:', err)
+      }
+    }
+  }
+}
+
 onMounted(async () => {
   console.log('onMounted被调用')
   // 使用nextTick确保DOM已经更新，videoRef已经引用到video元素
   await nextTick()
   console.log('nextTick完成，检查videoRef.value:', videoRef.value)
   initPlayer()
+
+  // 监听页面关闭/刷新事件
+  window.addEventListener('beforeunload', handleBeforeUnload)
 })
+
+// 页面关闭/刷新前的处理
+const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+  // 使用同步的 XMLHttpRequest 确保请求发送完成
+  if (player.value && videoId) {
+    const currentTime = player.value.currentTime()
+    const duration = player.value.duration() || 0
+    if (currentTime > 0 && currentTime < duration) {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/user/history', false) // 同步请求
+      xhr.setRequestHeader('Content-Type', 'application/json')
+      xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('token') || ''}`)
+      xhr.send(JSON.stringify({ videoId, progress: Math.floor(currentTime) }))
+    }
+  }
+}
 
 onUnmounted(() => {
   console.log('onUnmounted被调用')
+  // 保存进度
+  saveCurrentProgress()
+  // 移除事件监听
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+  // 销毁播放器
   player.value?.dispose()
 })
 </script>

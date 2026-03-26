@@ -5,7 +5,31 @@
 This is a full-stack video streaming platform with:
 - **Frontend**: Vue 3 + TypeScript + Vite + Pinia + Vue Router
 - **Backend**: NestJS + TypeScript + TypeORM + PostgreSQL
-- **Features**: Video playback, subtitles, user auth, VIP subscription, admin dashboard
+- **Features**: Video playback, subtitles, user auth, VIP subscription, admin dashboard, watch history
+
+## Current Features
+
+### User Features
+- **Authentication**: Login/Register with username or email, JWT token-based auth
+- **Video Playback**: Stream local videos with progress tracking, subtitle support (SRT/VTT)
+- **Watch History**: Records viewing progress, resume playback from last position
+- **Favorites**: Add/remove videos from favorites
+- **User Profile**: Update profile info, avatar upload with image compression
+- **VIP Subscription**: VIP-only video access control
+
+### Admin Features
+- **User Management**: CRUD operations on users, role management
+- **Video Management**: Upload, edit, delete videos
+- **Directory Management**: Organize videos in directories
+- **Repository Management**: Manage video repositories
+
+### Video List Features
+- **Pagination**: Google-style pagination with page numbers
+- **Sorting**: Sort by upload time, view count, title (asc/desc)
+- **Filtering**: Filter by repository
+- **Thumbnail Size**: Toggle between 4/5/6 items per row
+
+---
 
 ## Build Commands
 
@@ -216,6 +240,39 @@ export const useAuthStore = defineStore('auth', () => {
   return { token, userInfo, isLoggedIn, login }
 })
 ```
+
+---
+
+## Logging (Important!)
+
+### Backend Logging
+The backend uses a custom `FileLogger` class that writes logs to both console and files:
+
+**Log Files Location**: `src/server/logs/`
+- `app-YYYY-MM-DD_HH-MM-SS.log` - All log levels
+- `error-YYYY-MM-DD_HH-MM-SS.log` - Error logs only
+
+**Usage in Code**:
+```typescript
+import { Logger } from '@nestjs/common'
+
+@Controller('videos')
+export class VideoController {
+  private readonly logger = new Logger(VideoController.name)
+
+  async someMethod() {
+    this.logger.log('Info message')
+    this.logger.error('Error message', error.stack)
+    this.logger.warn('Warning message')
+    this.logger.debug('Debug message')
+  }
+}
+```
+
+**Important**: 
+- Always use `Logger` from `@nestjs/common` instead of `console.log()`
+- `console.log()` outputs will NOT be written to log files
+- Each controller/service should have its own logger instance
 
 ---
 
