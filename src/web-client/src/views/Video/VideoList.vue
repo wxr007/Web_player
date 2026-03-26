@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { getVideoList } from '@/api/video'
+import { getVideoList, getRepositories } from '@/api/video'
 import type { Video } from '@/types/video'
+import type { Repository } from '@/api/video'
 
 const videos = ref<Video[]>([])
 const loading = ref(false)
@@ -9,10 +10,31 @@ const page = ref(1)
 const pageSize = ref(12)
 const total = ref(0)
 
+// 排序相关
+const sortField = ref<'createdAt' | 'viewCount' | 'title'>('createdAt')
+const sortOrder = ref<'asc' | 'desc'>('asc')
+
+// 仓库筛选相关
+const repositories = ref<Repository[]>([])
+const selectedRepository = ref<string>('')
+
+// 缩略图大小
+const gridSize = ref<4 | 5 | 6>(4)
+
+const handleGridSizeChange = (size: 4 | 5 | 6) => {
+  gridSize.value = size
+}
+
 const fetchVideos = async () => {
   loading.value = true
   try {
-    const res = await getVideoList({ page: page.value, pageSize: pageSize.value }) as any
+    const res = await getVideoList({ 
+      page: page.value, 
+      pageSize: pageSize.value,
+      sortField: sortField.value,
+      sortOrder: sortOrder.value,
+      repositoryId: selectedRepository.value || undefined
+    }) as any
     videos.value = res.list || []
     total.value = res.total || 0
   } catch (error) {
@@ -22,7 +44,37 @@ const fetchVideos = async () => {
   }
 }
 
+const fetchRepositories = async () => {
+  try {
+    const res = await getRepositories() as any
+    repositories.value = res || []
+  } catch (error) {
+    console.error('获取仓库列表失败:', error)
+  }
+}
+
+const handleRepositoryChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  selectedRepository.value = target.value
+  page.value = 1
+  fetchVideos()
+}
+
+const handleSortFieldChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  sortField.value = target.value as 'createdAt' | 'viewCount' | 'title'
+  page.value = 1
+  fetchVideos()
+}
+
+const handleSortOrderChange = () => {
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  page.value = 1
+  fetchVideos()
+}
+
 onMounted(() => {
+  fetchRepositories()
   fetchVideos()
 })
 
@@ -90,8 +142,65 @@ const formatDuration = (seconds: number) => {
 
 <template>
   <div class="video-list-page container">
+    <!-- 筛选和排序控件 -->
+    <div class="controls-bar">
+      <!-- 仓库筛选 -->
+      <div class="filter-group">
+        <label>视频仓库</label>
+        <select :value="selectedRepository" @change="handleRepositoryChange" class="filter-select">
+          <option value="">全部仓库</option>
+          <option v-for="repo in repositories" :key="repo.id" :value="repo.id">{{ repo.name }}</option>
+        </select>
+      </div>
+      
+      <!-- 缩略图大小选择 -->
+      <div class="view-controls">
+        <div class="grid-size-selector">
+          <button 
+            class="size-btn" 
+            :class="{ active: gridSize === 4 }"
+            @click="handleGridSizeChange(4)"
+            title="大图标"
+          >
+            <span class="grid-icon large">□</span>
+          </button>
+          <button 
+            class="size-btn" 
+            :class="{ active: gridSize === 5 }"
+            @click="handleGridSizeChange(5)"
+            title="中图标"
+          >
+            <span class="grid-icon medium">□□</span>
+          </button>
+          <button 
+            class="size-btn" 
+            :class="{ active: gridSize === 6 }"
+            @click="handleGridSizeChange(6)"
+            title="小图标"
+          >
+            <span class="grid-icon small">□□□</span>
+          </button>
+        </div>
+        
+        <!-- 排序控件 -->
+        <div class="sort-controls">
+          <div class="sort-group">
+            <label>排序方式</label>
+            <select :value="sortField" @change="handleSortFieldChange" class="sort-select">
+              <option value="createdAt">上传时间</option>
+              <option value="viewCount">播放量</option>
+              <option value="title">标题</option>
+            </select>
+          </div>
+          <button class="sort-order-btn" @click="handleSortOrderChange" :title="sortOrder === 'asc' ? '升序' : '降序'">
+            <span v-if="sortOrder === 'asc'">↑ 升序</span>
+            <span v-else>↓ 降序</span>
+          </button>
+        </div>
+      </div>
+    </div>
     
-    <div class="video-grid" v-if="!loading && videos.length">
+    <div class="video-grid" :class="`grid-${gridSize}`" v-if="!loading && videos.length">
       <router-link 
         v-for="video in videos" 
         :key="video.id" 
@@ -173,6 +282,167 @@ const formatDuration = (seconds: number) => {
   width: 100%;
 }
 
+.controls-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 12px 0;
+  
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    label {
+      font-size: 14px;
+      color: #606266;
+      font-weight: 500;
+    }
+    
+    .filter-select {
+      padding: 8px 12px;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      font-size: 14px;
+      background-color: white;
+      cursor: pointer;
+      min-width: 150px;
+      
+      &:focus {
+        outline: none;
+        border-color: var(--color-primary);
+      }
+      
+      &:hover {
+        border-color: #c0c4cc;
+      }
+    }
+  }
+  
+  .view-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    
+    .grid-size-selector {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      background-color: #f5f7fa;
+      border-radius: 4px;
+      
+      .size-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 10px;
+        background-color: transparent;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        
+        .grid-icon {
+          display: flex;
+          gap: 2px;
+          font-size: 12px;
+          color: #606266;
+          
+          &.large {
+            font-size: 14px;
+          }
+          
+          &.medium {
+            font-size: 10px;
+            letter-spacing: -2px;
+          }
+          
+          &.small {
+            font-size: 8px;
+            letter-spacing: -3px;
+          }
+        }
+        
+        &:hover {
+          background-color: #e4e7ed;
+        }
+        
+        &.active {
+          background-color: white;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          
+          .grid-icon {
+            color: var(--color-primary);
+            font-weight: bold;
+          }
+        }
+      }
+    }
+    
+    .sort-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      
+      .sort-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        
+        label {
+          font-size: 14px;
+          color: #606266;
+          font-weight: 500;
+        }
+        
+        .sort-select {
+          padding: 8px 12px;
+          border: 1px solid #dcdfe6;
+          border-radius: 4px;
+          font-size: 14px;
+          background-color: white;
+          cursor: pointer;
+          min-width: 120px;
+          
+          &:focus {
+            outline: none;
+            border-color: var(--color-primary);
+          }
+          
+          &:hover {
+            border-color: #c0c4cc;
+          }
+        }
+      }
+      
+      .sort-order-btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 16px;
+        background-color: white;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #606266;
+        cursor: pointer;
+        transition: all 0.2s;
+        
+        &:hover {
+          background-color: #f5f7fa;
+          border-color: #c0c4cc;
+        }
+        
+        &:active {
+          background-color: #e4e7ed;
+        }
+      }
+    }
+  }
+}
+
 .page-header {
   margin-bottom: var(--spacing-lg);
   
@@ -184,15 +454,63 @@ const formatDuration = (seconds: number) => {
 
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   
-  @media (max-width: 1024px) {
-    grid-template-columns: repeat(3, 1fr);
+  // 大图标：一排4个
+  &.grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+    
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
   }
   
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
+  // 中图标：一排5个
+  &.grid-5 {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(4, 1fr);
+    }
+    
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    @media (max-width: 600px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  // 小图标：一排6个
+  &.grid-6 {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    
+    @media (max-width: 1400px) {
+      grid-template-columns: repeat(5, 1fr);
+    }
+    
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(4, 1fr);
+    }
+    
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    @media (max-width: 600px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 }
 

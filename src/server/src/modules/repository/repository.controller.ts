@@ -28,6 +28,14 @@ export class RepositoryController {
     return await this.repositoryService.getAllRepositories()
   }
 
+  @Get('public/list')
+  @ApiOperation({ summary: '获取视频仓库列表（公开）' })
+  @ApiResponse({ status: 200, description: '获取成功' })
+  async getPublicRepositories(): Promise<{ id: string; name: string }[]> {
+    const repositories = await this.repositoryService.getAllRepositories()
+    return repositories.map(repo => ({ id: repo.id, name: repo.name }))
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '获取单个视频仓库' })
   @ApiResponse({ status: 200, description: '获取成功' })

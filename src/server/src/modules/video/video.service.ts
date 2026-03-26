@@ -20,8 +20,20 @@ export class VideoService {
     keyword?: string
     tag?: string
     status?: string
+    sortField?: string
+    sortOrder?: 'asc' | 'desc'
+    repositoryId?: string
   }) {
-    const { page = 1, pageSize = 12, keyword, tag, status } = params
+    const { 
+      page = 1, 
+      pageSize = 12, 
+      keyword, 
+      tag, 
+      status,
+      sortField = 'createdAt',
+      sortOrder = 'asc',
+      repositoryId
+    } = params
     
     const query = this.videoRepository.createQueryBuilder('video')
       .leftJoinAndSelect('video.tags', 'tags')
@@ -40,10 +52,19 @@ export class VideoService {
       query.andWhere('tags.tag = :tag', { tag })
     }
     
+    if (repositoryId) {
+      query.andWhere('video.repositoryId = :repositoryId', { repositoryId })
+    }
+    
+    // 处理排序
+    const validSortFields = ['createdAt', 'viewCount', 'title', 'updatedAt']
+    const orderField = validSortFields.includes(sortField) ? sortField : 'createdAt'
+    const orderDirection = sortOrder === 'asc' ? 'ASC' : 'DESC'
+    
     const [list, total] = await query
       .skip((page - 1) * pageSize)
       .take(pageSize)
-      .orderBy('video.createdAt', 'DESC')
+      .orderBy(`video.${orderField}`, orderDirection)
       .getManyAndCount()
     
     return { list, total, page, pageSize }

@@ -1,6 +1,15 @@
 import instance from './axios'
 import type { Video, VideoListParams, VideoListResponse, Subtitle } from '@/types/video'
 
+export interface Repository {
+  id: string
+  name: string
+}
+
+export const getRepositories = () => {
+  return instance.get<Repository[]>('/repositories/public/list')
+}
+
 export const getVideoList = (params: VideoListParams) => {
   return instance.get<VideoListResponse>('/videos', { params })
 }

@@ -21,6 +21,9 @@ export interface VideoListParams {
   keyword?: string
   tag?: string
   status?: string
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
+  repositoryId?: string
 }
 
 export interface VideoListResponse {

@@ -16,6 +16,9 @@ export class VideoController {
   @ApiQuery({ name: 'keyword', required: false, description: '关键词' })
   @ApiQuery({ name: 'tag', required: false, description: '标签' })
   @ApiQuery({ name: 'status', required: false, description: '状态' })
+  @ApiQuery({ name: 'sortField', required: false, description: '排序字段(createdAt/viewCount/title)' })
+  @ApiQuery({ name: 'sortOrder', required: false, description: '排序方向(asc/desc)' })
+  @ApiQuery({ name: 'repositoryId', required: false, description: '仓库ID' })
   @ApiResponse({ status: 200, description: '获取成功' })
   @Get()
   async findAll(
@@ -24,8 +27,11 @@ export class VideoController {
     @Query('keyword') keyword?: string,
     @Query('tag') tag?: string,
     @Query('status') status?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('repositoryId') repositoryId?: string,
   ) {
-    return this.videoService.findAll({ page, pageSize, keyword, tag, status })
+    return this.videoService.findAll({ page, pageSize, keyword, tag, status, sortField, sortOrder, repositoryId })
   }
 
   @ApiOperation({ summary: '获取视频详情' })
