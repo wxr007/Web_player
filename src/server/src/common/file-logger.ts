@@ -11,7 +11,15 @@ export class FileLogger extends ConsoleLogger {
       logLevels: ['log', 'error', 'warn', 'debug', 'verbose'],
       timestamp: true,
     })
-    this.logFilePath = path.join(process.cwd(), 'logs', 'app.log')
+    
+    // 生成带日期时间标记的日志文件名
+    const now = new Date()
+    const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
+    const fileName = `app-${dateStr}_${timeStr}.log`
+    
+    this.logFilePath = path.join(process.cwd(), 'logs', fileName)
+    
     // 确保日志目录存在
     const logDir = path.dirname(this.logFilePath)
     if (!fs.existsSync(logDir)) {
