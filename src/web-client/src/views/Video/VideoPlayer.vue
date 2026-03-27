@@ -161,6 +161,27 @@ const initPlayer = async () => {
       // 禁用原生字幕轨道，使用Video.js的字幕按钮
       html5: {
         nativeTextTracks: false
+      },
+      // 自定义控制栏，移除原有的字幕按钮
+      controlBar: {
+        children: [
+          'playToggle',
+          'volumePanel',
+          'currentTimeDisplay',
+          'timeDivider',
+          'durationDisplay',
+          'progressControl',
+          'liveDisplay',
+          'seekToLive',
+          'remainingTimeDisplay',
+          'customControlSpacer',
+          'playbackRateMenuButton',
+          'chaptersButton',
+          'descriptionsButton',
+          // 'subsCapsButton', // 移除原有的字幕按钮
+          'audioTrackButton',
+          'fullscreenToggle'
+        ]
       }
     })
     
@@ -175,14 +196,159 @@ const initPlayer = async () => {
     })
     console.log('设置默认字幕样式: Text Background 半透明')
     
-    // 手动检查字幕按钮是否存在
-    setTimeout(() => {
-      const captionsButton = player.value.controlBar.getChild('captionsButton')
-      console.log('字幕按钮存在:', !!captionsButton)
-      if (captionsButton) {
-        console.log('字幕按钮配置:', captionsButton.options())
+    // 创建自定义字幕Toggle按钮
+    const ToggleCaptionButton = videojs.getComponent('Button')
+    class CaptionToggleButton extends ToggleCaptionButton {
+      constructor(player: any, options: any) {
+        super(player, options)
+        
+        // 延迟初始化图标，等待字幕轨道加载完成
+        setTimeout(() => {
+          this.updateIcon()
+        }, 100)
+        
+        // 监听字幕变化
+        const textTracks = player.textTracks()
+        if (textTracks) {
+          textTracks.addEventListener('change', () => {
+            this.updateIcon()
+          })
+        }
       }
-    }, 1000)
+      
+      buildCSSClass() {
+        return `vjs-caption-toggle-button ${super.buildCSSClass()}`
+      }
+      
+      handleClick() {
+        const textTracks = this.player().textTracks()
+        if (!textTracks || textTracks.length === 0) return
+        
+        // 检查是否有字幕正在显示
+        let isShowing = false
+        for (let i = 0; i < textTracks.length; i++) {
+          if (textTracks[i].mode === 'showing') {
+            isShowing = true
+            break
+          }
+        }
+        
+        // 切换字幕显示状态
+        if (isShowing) {
+          // 隐藏所有字幕
+          for (let i = 0; i < textTracks.length; i++) {
+            textTracks[i].mode = 'disabled'
+          }
+          // 强制清除字幕显示
+          this.clearCaptionDisplay()
+        } else {
+          // 显示第一个可用字幕
+          for (let i = 0; i < textTracks.length; i++) {
+            if (textTracks[i].kind === 'captions' || textTracks[i].kind === 'subtitles') {
+              textTracks[i].mode = 'showing'
+              break
+            }
+          }
+        }
+        this.updateIcon()
+      }
+      
+      // 强制清除字幕显示
+      clearCaptionDisplay() {
+        const player = this.player()
+        // 触发 texttrackchange 事件强制刷新
+        player.trigger('texttrackchange')
+        
+        // 清除所有字幕显示元素
+        const textTrackDisplay = player.getChild('textTrackDisplay')
+        if (textTrackDisplay) {
+          textTrackDisplay.clearDisplay()
+        }
+        
+        // 通过重置 activeCues 来清除当前显示的字幕
+        for (let i = 0; i < player.textTracks().length; i++) {
+          const track = player.textTracks()[i]
+          if (track.activeCues) {
+            // 触发 cuechange 事件来刷新显示
+            track.dispatchEvent(new Event('cuechange'))
+          }
+        }
+      }
+      
+      updateIcon() {
+        const textTracks = this.player().textTracks()
+        let isShowing = false
+        if (textTracks) {
+          for (let i = 0; i < textTracks.length; i++) {
+            if (textTracks[i].mode === 'showing') {
+              isShowing = true
+              break
+            }
+          }
+        }
+        
+        // 设置按钮图标 - 使用 VideoJS 的 captions 图标
+        this.el().innerHTML = '<span class="vjs-icon-placeholder vjs-icon-captions" style="font-family: VideoJS;"></span>'
+        this.el().style.opacity = isShowing ? '1' : '0.4'
+        
+        // 设置按钮标题
+        this.controlText(isShowing ? '关闭字幕' : '开启字幕')
+        
+        // 强制刷新按钮状态
+        this.trigger('change')
+      }
+    }
+    videojs.registerComponent('CaptionToggleButton', CaptionToggleButton)
+    
+    // 创建字幕设置按钮
+    const SettingsButton = videojs.getComponent('Button')
+    class CaptionSettingsButton extends SettingsButton {
+      constructor(player: any, options: any) {
+        super(player, options)
+        this.controlText('字幕设置')
+        // 设置按钮图标为齿轮图标
+        this.el().innerHTML = '<span class="vjs-icon-placeholder vjs-icon-cog" style="font-family: VideoJS;"></span>'
+      }
+      
+      buildCSSClass() {
+        return `vjs-caption-settings-button ${super.buildCSSClass()}`
+      }
+      
+      handleClick() {
+        // 打开字幕设置对话框
+        const settings = this.player().textTrackSettings
+        if (settings && settings.open) {
+          settings.open()
+        }
+      }
+    }
+    videojs.registerComponent('CaptionSettingsButton', CaptionSettingsButton)
+    
+    // 添加自定义按钮到控制栏
+    const controlBar = player.value.controlBar
+    
+    // 找到全屏按钮的位置
+    const fullscreenIndex = controlBar.children().findIndex((child: any) => 
+      child.name && child.name() === 'FullscreenToggle'
+    )
+    
+    // 在全屏按钮之前添加字幕按钮
+    if (fullscreenIndex !== -1) {
+      // 添加自定义Toggle按钮
+      controlBar.addChild('CaptionToggleButton', {}, fullscreenIndex)
+      
+      // 添加设置按钮
+      controlBar.addChild('CaptionSettingsButton', {}, fullscreenIndex + 1)
+      
+      console.log('自定义字幕按钮已添加到全屏按钮之前')
+    } else {
+      // 如果找不到全屏按钮，添加到控制栏末尾
+      controlBar.addChild('CaptionToggleButton')
+      controlBar.addChild('CaptionSettingsButton')
+      console.log('自定义字幕按钮已添加到控制栏末尾')
+    }
+    
+    console.log('自定义字幕按钮已添加')
     
     // 添加播放器事件监听
     player.value.on('error', (e: any) => {
@@ -316,6 +482,9 @@ const initPlayer = async () => {
           console.log('启用第一个字幕轨道:', textTracks[0].label)
         }
       }
+      
+      // 触发字幕轨道变化事件，更新按钮状态
+      player.value.trigger('texttrackchange')
     }, 3000)
     
     console.log('播放器初始化完成')
@@ -794,5 +963,19 @@ onUnmounted(() => {
   text-align: center;
   padding: 60px;
   background: #f5f5f5;
+}
+
+/* 自定义字幕按钮样式 - 继承 VideoJS 默认按钮样式 */
+:deep(.vjs-caption-toggle-button),
+:deep(.vjs-caption-settings-button) {
+  cursor: pointer;
+  
+  .vjs-icon-placeholder {
+    font-family: VideoJS;
+  }
+}
+
+:deep(.vjs-caption-toggle-button:hover) {
+  opacity: 1;
 }
 </style>
