@@ -64,7 +64,7 @@ export class RepositoryController {
   @ApiOperation({ summary: '扫描视频仓库' })
   @ApiResponse({ status: 200, description: '扫描成功' })
   @ApiResponse({ status: 404, description: '仓库不存在' })
-  async scanRepository(@Param('id') id: string): Promise<{ added: number; updated: number; total: number }> {
+  async scanRepository(@Param('id') id: string): Promise<{ added: number; updated: number; deleted: number; total: number }> {
     return await this.repositoryService.scanRepository(id)
   }
 }

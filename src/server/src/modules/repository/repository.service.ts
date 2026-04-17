@@ -79,7 +79,7 @@ export class RepositoryService {
     await this.repositoryRepository.delete(id)
   }
 
-  async scanRepository(id: string): Promise<{ added: number; updated: number; total: number }> {
+  async scanRepository(id: string): Promise<{ added: number; updated: number; deleted: number; total: number }> {
     const repository = await this.getRepositoryById(id)
     
     // 更新仓库状态为扫描中
@@ -100,6 +100,9 @@ export class RepositoryService {
       
       this.logger.log(`找到 ${videoFiles.length} 个视频文件, ${subtitleFiles.length} 个字幕文件`)
 
+      // 检查并删除已不存在的视频
+      const deleted = await this.removeDeletedVideos(videoFiles, id)
+
       let added = 0
       let updated = 0
 
@@ -117,8 +120,8 @@ export class RepositoryService {
         videoCount: added + updated
       })
 
-      this.logger.log(`扫描完成: 新增 ${added} 个视频, 更新 ${updated} 个视频, 总计 ${videoFiles.length} 个视频`)
-      return { added, updated, total: videoFiles.length }
+      this.logger.log(`扫描完成: 新增 ${added} 个视频, 更新 ${updated} 个视频, 删除 ${deleted} 个视频, 总计 ${videoFiles.length} 个视频`)
+      return { added, updated, deleted, total: videoFiles.length }
     } catch (error) {
       this.logger.error(`扫描仓库失败: ${error.message}`)
       
@@ -130,6 +133,41 @@ export class RepositoryService {
 
       throw error
     }
+  }
+
+  /**
+   * 检查并删除数据库中已不存在的视频
+   */
+  private async removeDeletedVideos(currentVideoFiles: string[], repositoryId: string): Promise<number> {
+    // 获取该仓库下的所有视频记录
+    const existingVideos = await this.videoRepository.find({
+      where: { repositoryId }
+    })
+
+    let deletedCount = 0
+
+    for (const video of existingVideos) {
+      // 检查视频文件是否仍然存在
+      const fileExists = currentVideoFiles.includes(video.localPath)
+      
+      if (!fileExists) {
+        this.logger.log(`视频文件已删除，从数据库移除: ${video.title}`)
+        
+        // 删除关联的字幕
+        await this.subtitleRepository.delete({ videoId: video.id })
+        
+        // 删除视频记录
+        await this.videoRepository.remove(video)
+        
+        deletedCount++
+      }
+    }
+
+    if (deletedCount > 0) {
+      this.logger.log(`已从数据库删除 ${deletedCount} 个不存在的视频`)
+    }
+
+    return deletedCount
   }
 
   private async findAllFiles(directoryPath: string): Promise<string[]> {
